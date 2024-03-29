@@ -1,3 +1,5 @@
+# Test Darknet on CIFAR-10
+
 import torch
 import torch.nn as nn
 import torchvision
