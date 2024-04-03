@@ -17,9 +17,6 @@ class ChangeView(nn.Module):
     def forward(self, inputs):
         return inputs.view(self.Batch_Size, -1)
 
-
-print("Loading Dataset")
-
 transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -27,6 +24,8 @@ transform = transforms.Compose([
 
 trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
 testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
+
+print("Loading Images for Training")
 
 X_train = torch.stack([sample[0] for sample in trainset])
 y_train = torch.tensor([sample[1] for sample in trainset])
@@ -76,7 +75,7 @@ start_time = time.time()
 
 print("Computing Started")
 
-for epoch in range(5):
+for epoch in range(2):
     running_loss = 0.0
     
     epoch_st_time = time.time()
@@ -94,11 +93,11 @@ for epoch in range(5):
         optimizer.step()
 
         running_loss += loss.item()
-        if i % 200 == 199:
-            print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 200))
+        if i % 10 == 0:
+            print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 10))
             running_loss = 0.0
 
-    print(f"Time Taken Epoch: {epoch + 1} - {time.time() - epoch_st_time:.2f} seconds")
+    print(f"Time Taken Epoch: {epoch + 1} - {time.time() - epoch_st_time:.2f} seconds\n")
 
 # Test the trained model
 correct = 0
