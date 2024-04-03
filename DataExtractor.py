@@ -1,10 +1,12 @@
 import torch
+import torch.nn as nn
 import torchvision.transforms as transforms
 from PIL import Image
 import pandas as pd
 from sklearn.cluster import KMeans
+import time
 
-class DataExtractor:
+class DataExtractor(nn.Module):
     def __init__(
                     self,
                     data_path,
@@ -15,9 +17,11 @@ class DataExtractor:
                     Y_name: str,
                     Anchor_name: str,
                     scaling_fact: int,
+                    device,
                     anchor_boxes: list = None
                 ):
-
+        super(DataExtractor, self).__init__()
+    
         self.data_path = data_path
         self.annotations_csv = annotations_csv
         self.scaled_image_size = scaled_image_size
@@ -31,6 +35,8 @@ class DataExtractor:
         else:
             self.anchor_nos = anchor_nos
 
+        self.to(device)
+
     def extractX_toMem(self):
         print("Extraction Started:")
         
@@ -41,7 +47,7 @@ class DataExtractor:
         
         csv_file = self.data_path + self.annotations_csv
 
-        data = pd.read_csv(csv_file)
+        data = pd.read_csv(csv_file, header = None)
         
         image_names = data.iloc[:, 0]
         
@@ -89,15 +95,16 @@ class DataExtractor:
         
         csv_file = self.data_path + self.annotations_csv
 
-        data = pd.read_csv(csv_file)
+        data = pd.read_csv(csv_file, header = None)
 
         image_names = data.iloc[:, 0]
 
-        return torch.tensor(data.iloc[:, 1:].values)
+        return image_names, torch.tensor(data.iloc[:, 1:].values)
 
     def extractAnchors_toMem(self):
+        StTime = time.time()
 
-        bounding_boxes = self.get_bounding_boxes()
+        image_names, bounding_boxes = self.get_bounding_boxes()
 
         for idx, image_name in enumerate(image_names):
 
@@ -106,7 +113,7 @@ class DataExtractor:
             X_scale = self.scaled_image_size[0] / image.width
             Y_scale = self.scaled_image_size[1] / image.height
 
-            # transforms.ToPILImage()(image).save("scaled.jpg", "JPEG")
+            # transforms.Resize(self.scaled_image_size)(image).save("scaled.jpg", "JPEG")
             
             box = bounding_boxes[idx]
 
@@ -122,14 +129,20 @@ class DataExtractor:
             bounding_boxes[idx][3] = height
 
             if idx % 100 == 0: print(idx)
-            break
             
         anchors = self.detect_anchors(bounding_boxes[:, 2:], self.anchor_nos)
         
-        torch.save(anchors, self.data_path + self.Anchor_name + '.pt')
+        print(anchors)
+        print(f"Time Taken: {time.time() - StTime} s")
+        
+        if str(input("Save? ('N' for NO)")) != 'N': 
+            torch.save(anchors, self.data_path + self.Anchor_name + '.pt')
+            print("Anchors saved succesfully!")
+        else:
+            print("Anchors not saved :(")
         
     def extractY_toMem(self):
-        bounding_boxes = self.get_bounding_boxes()
+        _, bounding_boxes = self.get_bounding_boxes()
         anchors = self.getAnchors_fromMem()
 
         final_gird_size = (self.scaled_image_size[0] // self.scaling_fact, self.scaled_image_size[1] // self.scaling_fact)
@@ -179,15 +192,20 @@ image_scale = 7
 image_size = (image_scale*32, image_scale*32)
 scaling_fact = 32
 
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cpu')
+
 ExtractTrainData = DataExtractor (
                                 data_path=data_path + 'train/', 
                                 annotations_csv="_annotations.csv", 
                                 scaled_image_size=image_size, 
-                                anchor_nos=3,
+                                anchor_nos=5,
                                 X_name='X_train',
                                 Y_name='Y_train',
                                 Anchor_name='Anchor_train',
-                                scaling_fact=scaling_fact
+                                scaling_fact=scaling_fact,
+                                device=device
                             )
 
-ExtractTrainData.extractY_toMem()
+ExtractTrainData.extractAnchors_toMem()
+# ExtractTrainData.extractY_toMem()
