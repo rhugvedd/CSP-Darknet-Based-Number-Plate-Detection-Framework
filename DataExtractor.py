@@ -77,17 +77,23 @@ class DataExtractor(nn.Module):
 
             box[0::2] = box[0::2] * X_scale
             box[1::2] = box[1::2] * Y_scale
-                
+            
             box_centre = ((box[2] + box[0]) / 2, (box[3] + box[1]) / 2)
             grid_cell = (int(box_centre[1] // self.scaling_fact), int(box_centre[0] // self.scaling_fact))
             max_iou_anchor = self.get_max_iou_anchor(box, anchors, box_centre, grid_cell)
 
-            Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5]     = (box_centre[0] - (grid_cell[1] * self.scaling_fact)) / self.scaling_fact
-            Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 1] = (box_centre[1] - (grid_cell[0] * self.scaling_fact)) / self.scaling_fact
-            Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 2] = (box[2] - box[0]) / anchors[max_iou_anchor][0]
-            Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 3] = (box[3] - box[1]) / anchors[max_iou_anchor][1]
+            Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5]     = box_centre[0]
+            Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 1] = box_centre[1]
+            Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 2] = box[2] - box[0]
+            Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 3] = box[3] - box[1]
             Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 4] = 1
-
+            
+            # Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5]     = (box_centre[0] - (grid_cell[1] * self.scaling_fact)) / self.scaling_fact
+            # Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 1] = (box_centre[1] - (grid_cell[0] * self.scaling_fact)) / self.scaling_fact
+            # Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 2] = (box[2] - box[0]) / anchors[max_iou_anchor][0]
+            # Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 3] = (box[3] - box[1]) / anchors[max_iou_anchor][1]
+            # Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 4] = 1
+            
             if idx % print_interval == 0: print(idx)
 
         date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
