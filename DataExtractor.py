@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn.cluster import KMeans
 import time
 from datetime import datetime
+import numpy as np
 
 class DataExtractor(nn.Module):
     def __init__(
@@ -14,10 +15,8 @@ class DataExtractor(nn.Module):
                     save_path,
                     annotations_csv,
                     scaled_image_size: tuple,
-                    anchor_nos: int,
                     scaling_fact: int,
                     device,
-                    anchor_boxes: list = None
                 ):
         super(DataExtractor, self).__init__()
     
@@ -28,11 +27,6 @@ class DataExtractor(nn.Module):
         self.scaling_fact = scaling_fact
         self.final_grid_size = (scaled_image_size[0] // self.scaling_fact, scaled_image_size[1] // self.scaling_fact)
         
-        if(anchor_boxes != None):
-            self.anchor_nos = len(anchor_boxes)
-        else:
-            self.anchor_nos = anchor_nos
-
         self.to(device)
     
     def extractXY_toMem(self, X_Name, Y_Name, Anchor_name, print_interval, num_examples = None):
@@ -46,6 +40,9 @@ class DataExtractor(nn.Module):
         
         image_names, bounding_boxes = self.get_bounding_boxes(num_examples)
         
+        anchors = self.getAnchors_fromMem(Anchor_name)
+        anchor_nos = anchors.size(0)
+
         X_train = torch.zeros   (
                                     image_names.shape[0], 
                                     3, 
@@ -58,11 +55,9 @@ class DataExtractor(nn.Module):
                                     bounding_boxes.shape[0], 
                                     self.final_grid_size[0], 
                                     self.final_grid_size[1], 
-                                    self.anchor_nos * 5, 
+                                    anchor_nos * 5,
                                     dtype=torch.float16
                                 )
-
-        anchors = self.getAnchors_fromMem(Anchor_name)
 
         for idx, image_name, box in zip(range(image_names.shape[0]), image_names, bounding_boxes):
 
@@ -82,17 +77,17 @@ class DataExtractor(nn.Module):
             grid_cell = (int(box_centre[1] // self.scaling_fact), int(box_centre[0] // self.scaling_fact))
             max_iou_anchor = self.get_max_iou_anchor(box, anchors, box_centre, grid_cell)
 
-            Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5]     = box_centre[0]
-            Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 1] = box_centre[1]
-            Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 2] = box[2] - box[0]
-            Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 3] = box[3] - box[1]
-            Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 4] = 1
+            Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5]     = box_centre[0]
+            Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 1] = box_centre[1]
+            Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 2] = box[2] - box[0]
+            Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 3] = box[3] - box[1]
+            Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 4] = 1
             
-            # Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5]     = (box_centre[0] - (grid_cell[1] * self.scaling_fact)) / self.scaling_fact
-            # Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 1] = (box_centre[1] - (grid_cell[0] * self.scaling_fact)) / self.scaling_fact
-            # Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 2] = (box[2] - box[0]) / anchors[max_iou_anchor][0]
-            # Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 3] = (box[3] - box[1]) / anchors[max_iou_anchor][1]
-            # Temp = Y_train[idx][grid_cell[0]][grid_cell[1]][max_iou_anchor * 5 + 4] = 1
+            # Temp = Y_train[idx][max_iou_anchor * 5]    [grid_cell[0]][grid_cell[1]] = (box_centre[0] - (grid_cell[1] * self.scaling_fact)) / self.scaling_fact
+            # Temp = Y_train[idx][max_iou_anchor * 5 + 1][grid_cell[0]][grid_cell[1]] = (box_centre[1] - (grid_cell[0] * self.scaling_fact)) / self.scaling_fact
+            # Temp = Y_train[idx][max_iou_anchor * 5 + 2][grid_cell[0]][grid_cell[1]] = (box[2] - box[0]) / anchors[max_iou_anchor][0]
+            # Temp = Y_train[idx][max_iou_anchor * 5 + 3][grid_cell[0]][grid_cell[1]] = (box[3] - box[1]) / anchors[max_iou_anchor][1]
+            # Temp = Y_train[idx][max_iou_anchor * 5 + 4][grid_cell[0]][grid_cell[1]] = 1
             
             if idx % print_interval == 0: print(idx)
 
@@ -168,7 +163,7 @@ class DataExtractor(nn.Module):
 
         return image_names, torch.tensor(data.iloc[:num_boxes, 1:].values)
 
-    def extractAnchors_toMem(self, Anchor_name):
+    def extractAnchors_toMem(self, Anchor_name, anchor_nos):
         StTime = time.time()
 
         image_names, bounding_boxes = self.get_bounding_boxes()
@@ -195,11 +190,20 @@ class DataExtractor(nn.Module):
 
             if idx % 100 == 0: print(idx)
             
-        anchors = self.detect_anchors(bounding_boxes[:, 2:], self.anchor_nos)
+        anchors, scores = self.detect_anchors(bounding_boxes[:, 2:], anchor_nos)
         
-        print(anchors)
+        anchors = torch.tensor(anchors)
+
+        for i in range(len(anchors)):
+            print(f"{anchors[i]}: {scores[i]}")
+        
         print(f"Time Taken: {time.time() - StTime} s")
-        
+
+        indices = [int(x) for x in input("Which anchors to save?").split()]
+        anchors = torch.stack([anchors[x] for x in indices])
+
+        print(anchors)
+
         if str(input("Save? ('N' for NO)")) != 'N': 
             torch.save(anchors, self.save_path + Anchor_name + '.pt')
             print("Anchors saved succesfully!")
@@ -214,31 +218,44 @@ class DataExtractor(nn.Module):
 
         cluster_centers = kmeans.cluster_centers_
 
-        return cluster_centers
+        labels = kmeans.labels_
+        label_counts = np.bincount(labels)
+
+        return cluster_centers, label_counts
         
-    def getXY_fromMem(self, X_Name, Y_name):
-        return torch.load(self.save_path + X_name + '.pt'), torch.load(self.save_path + Y_name + '.pt')
+    def getXY_fromMem(self, X_Name, Y_Name):
+        
+        if X_Name[-3:] != '.pt': 
+            X_Name += '.pt'
+
+        if Y_Name[-3:] != '.pt': 
+            Y_Name += '.pt'
+
+        return torch.load(self.save_path + X_Name), torch.load(self.save_path + Y_Name)
 
     def getAnchors_fromMem(self, Anchor_name):
-        return torch.load(self.save_path + Anchor_name + '.pt')
+        
+        if Anchor_name[-3:] != '.pt': 
+            Anchor_name += '.pt'
 
-data_path = "NumPlateData/"
+        return torch.tensor(torch.load(self.save_path + Anchor_name))
 
-image_scale = 7
-image_size = (image_scale*32, image_scale*32)
-scaling_fact = 32
+# data_path = "NumPlateData/"
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# image_scale = 9
+# image_size = (image_scale*32, image_scale*32)
+# scaling_fact = 32
 
-ExtractTrainData = DataExtractor (
-                                data_path=data_path + 'train/', 
-                                save_path=data_path,
-                                annotations_csv="_annotations.csv", 
-                                scaled_image_size=image_size, 
-                                anchor_nos=5,
-                                scaling_fact=scaling_fact,
-                                device=device
-                            )
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# ExtractTrainData.extractAnchors_toMem()
-# ExtractTrainData.extractXY_toMem('X_Train', 'Y_Train', 'Anchor_train', print_interval = 1)
+# ExtractTrainData = DataExtractor(
+#                                     data_path=data_path + 'train/',
+#                                     save_path=data_path,
+#                                     annotations_csv="_CleanedData.csv",
+#                                     scaled_image_size=image_size,
+#                                     scaling_fact=scaling_fact,
+#                                     device=device
+#                                 )
+
+# ExtractTrainData.extractAnchors_toMem('Anchor_Train_9')
+# ExtractTrainData.extractXY_toMem('X_Train', 'Y_Train', 'Anchor_Train_9', print_interval = 1, num_examples=2)
