@@ -2,14 +2,15 @@ import torch
 import torch.nn as nn
 
 class YoloLoss(nn.Module):
-    def __init__(self, lambda_cord, lambda_obj, lambda_no_obj):
+    def __init__(self, lambda_cord, lambda_obj, lambda_no_obj, anchor_nos):
         super(YoloLoss, self).__init__()
 
         self.lambda_cord = lambda_cord
         self.lambda_obj = lambda_obj
         self.lambda_no_obj = lambda_no_obj
+        self.anchor_nos = anchor_nos
         
-    def forward(self, predictions, targets, anchor_nos):
+    def forward(self, predictions, targets):
         """
         Inputs:
         predictions of shape: batch_size, width, height, anchor_data
@@ -22,15 +23,16 @@ class YoloLoss(nn.Module):
 
         m, w, h, _ = targets.shape
 
-        predictions = predictions.view(m, w, h, anchor_nos, -1)
-        targets = targets.view(m, w, h, anchor_nos, -1)
+        predictions = predictions.view(m, w, h, self.anchor_nos, -1)
+        targets = targets.view(m, w, h, self.anchor_nos, -1)
 
-        object_present = torch.zeros(m, w, h, anchor_nos, dtype = torch.int8, device = predictions.device)
-        no_object = torch.ones(m, w, h, anchor_nos, dtype = torch.int8, device = predictions.device)
+        object_present = torch.zeros(m, w, h, self.anchor_nos, dtype = torch.int8, device = targets.device)
+        no_object = torch.ones(m, w, h, self.anchor_nos, dtype = torch.int8, device = targets.device)
         
-        object_present[targets.any(axis = -1)] = 1
-        no_object[targets.any(axis = -1)] = 0
+        object_present[targets.view(m, w, h, self.anchor_nos, -1).any(axis = -1)] = 1
+        no_object[targets.view(m, w, h, self.anchor_nos, -1).any(axis = -1)] = 0
 
+        # TODO: Should the loss computation be with respect to all anchor boxes?
         loss = self.lambda_cord * torch.sum(object_present * self.CIoU_Loss(predictions, targets))
 
         BCE_loss = nn.BCELoss(reduction='none')(predictions[..., 4], targets[..., 4])
@@ -85,8 +87,6 @@ class YoloLoss(nn.Module):
                                 torch.atan(pred_boxes[..., 2] / (pred_boxes[..., 3] + epsilon))
                             ) ** 2
                         )
-
-        # v = v.masked_fill(torch.isnan(v), 0)
 
         alpha = v / (1 - iou_loss + v)
 
