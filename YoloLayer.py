@@ -52,7 +52,7 @@ class YoloHead(nn.Module):
         
         self.finalConv = nn.Conv2d(in_channels=in_channels, out_channels = self.anchors_nos * (5 + num_classes), kernel_size=1, padding='same')
 
-    def forward(self, inputs, gt_anchor_idx):
+    def train_data(self, inputs, gt_anchor_idx):
 
         inputs = self.finalConv(inputs)
 
@@ -72,6 +72,29 @@ class YoloHead(nn.Module):
 
         gt_anchors = torch.index_select(self.anchors, 0, gt_anchor_idx.view(-1)).view(gt_anchor_idx_shape + (2,))
         inputs[..., 2:4] = inputs[..., 2:4] * gt_anchors[:,:,:,None,:]
+
+        # TODO: Check this, should we add to all anchor boxes?
+        inputs[..., 1] += torch.arange(inputs.shape[1], device=inputs.device)[:, None, None]
+        inputs[..., 0] += torch.arange(inputs.shape[2], device=inputs.device)[:, None]
+        
+        inputs[..., 0:2] = inputs[..., 0:2] * self.scaling_fact
+
+        return inputs
+    
+    def forward(self, inputs):
+        
+        inputs = self.finalConv(inputs)
+
+        # TODO: Here is the permute 
+        inputs = inputs.permute(0,2,3,1)
+
+        grid_size = (inputs.shape[1:3])
+
+        inputs = inputs.view(-1, grid_size[0], grid_size[1], self.anchors_nos, 5 + self.numclasses)
+
+        inputs[..., 0:2] = nn.Sigmoid()(inputs[..., 0:2])
+        inputs[..., 2:4] = torch.exp(inputs[..., 2:4]) * self.anchors
+        inputs[..., 4] = nn.Sigmoid()(inputs[..., 4])
 
         # TODO: Check this, should we add to all anchor boxes?
         inputs[..., 1] += torch.arange(inputs.shape[1], device=inputs.device)[:, None, None]
