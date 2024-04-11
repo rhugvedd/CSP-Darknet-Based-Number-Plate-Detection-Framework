@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 import time
 
-def Norm(channels):
+def Norm(channels, momentum):
     # TODO: Check settings of BatchNorm for training and inference
-    return nn.BatchNorm2d(channels)
+    return nn.BatchNorm2d(channels, momentum = momentum)
 
 def Conv(in_channels, out_channels, kernel_size, downSamp):
     if downSamp:
@@ -21,26 +21,52 @@ class CSPDenseBlock(nn.Module):
 
         self.blocks.append(
                         nn.Sequential   (
-                                        Conv(self.DenseBlockInChannels, hidden_channels, kernel_size=1, downSamp=False),
-                                        Norm(hidden_channels),
-                                        nn.Mish(),
-                                        Conv(hidden_channels, out_channels, kernel_size=3, downSamp=False),
-                                        Norm(out_channels),
-                                        nn.Mish()
+                                            Conv(
+                                                    self.DenseBlockInChannels, 
+                                                    hidden_channels, 
+                                                    kernel_size=1, 
+                                                    downSamp=False
+                                                ),
+                                            Norm(hidden_channels),
+                                            nn.Mish(),
+                                            Conv(
+                                                    hidden_channels, 
+                                                    out_channels, 
+                                                    kernel_size=3, 
+                                                    downSamp=False
+                                                ),
+                                            Norm(out_channels),
+                                            nn.Mish()
                                         ))
 
         for block in range(1, num_blocks):
-            self.blocks.append(
-                nn.Sequential   (
-                                Conv(self.DenseBlockInChannels + (out_channels * block), hidden_channels, kernel_size=1, downSamp=False),
-                                Norm(hidden_channels),
-                                nn.Mish(),
-                                Conv(hidden_channels, out_channels, kernel_size=3, downSamp=False),
-                                Norm(out_channels),
-                                nn.Mish()
-                                ))
+            self.blocks.append  (
+                    nn.Sequential   (
+                                        Conv(
+                                                self.DenseBlockInChannels + (out_channels * block), 
+                                                hidden_channels, 
+                                                kernel_size=1, 
+                                                downSamp=False
+                                            ),
+                                        Norm(hidden_channels),
+                                        nn.Mish(),
+                                        Conv(
+                                                hidden_channels, 
+                                                out_channels, 
+                                                kernel_size=3, 
+                                                downSamp=False
+                                            ),
+                                        Norm(out_channels),
+                                        nn.Mish()
+                                    )
+                                )
 
-        self.transLayer = Conv(out_channels + self.DenseBlockInChannels, out_channels, kernel_size=3, downSamp=False)
+        self.transLayer = Conv  (
+                                    out_channels + self.DenseBlockInChannels, 
+                                    out_channels, 
+                                    kernel_size=3, 
+                                    downSamp=False
+                                )
         self.norm1 = Norm(out_channels)
         self.mish = nn.Mish()
 
@@ -71,40 +97,77 @@ class CSPDarknet(nn.Module):
 
         self.downSamp1 = Conv(32, 64, kernel_size=3, downSamp=True)
         self.downSampNorm1 = Norm(64)
-        self.CSP_DB1 = CSPDenseBlock(in_channels=64, hidden_channels=32, out_channels=64, num_blocks=1)
+        self.CSP_DB1 = CSPDenseBlock(
+                                        in_channels = 64, 
+                                        hidden_channels = 32, 
+                                        out_channels = 64, 
+                                        num_blocks = 1
+                                    )
         
         self.downSamp2 = Conv(64, 128, kernel_size=3, downSamp=True)
         self.downSampNorm2 = Norm(128)
-        self.CSP_DB2 = CSPDenseBlock(in_channels=128, hidden_channels=64, out_channels=64, num_blocks=2)
+        self.CSP_DB2 = CSPDenseBlock(
+                                        in_channels = 128, 
+                                        hidden_channels = 64, 
+                                        out_channels = 64, 
+                                        num_blocks = 2
+                                    )
         
         self.downSamp3 = Conv(64, 256, kernel_size=3, downSamp=True)
         self.downSampNorm3 = Norm(256)
-        self.CSP_DB3 = CSPDenseBlock(in_channels=256, hidden_channels=128, out_channels=128, num_blocks=8)
+        self.CSP_DB3 = CSPDenseBlock(
+                                        in_channels = 256, 
+                                        hidden_channels = 128, 
+                                        out_channels = 128, 
+                                        num_blocks = 8
+                                    )
         
         self.downSamp4 = Conv(128, 512, kernel_size=3, downSamp=True)
         self.downSampNorm4 = Norm(512)
-        self.CSP_DB4 = CSPDenseBlock(in_channels=512, hidden_channels=256, out_channels=256, num_blocks=8)
+        self.CSP_DB4 = CSPDenseBlock(
+                                        in_channels = 512, 
+                                        hidden_channels = 256, 
+                                        out_channels = 256, 
+                                        num_blocks = 8
+                                    )
 
         self.downSamp5 = Conv(256, 1024, kernel_size=3, downSamp=True)
         self.downSampNorm5 = Norm(1024)
-        self.CSP_DB5 = CSPDenseBlock(in_channels=1024, hidden_channels=512, out_channels=512, num_blocks=4)
+        self.CSP_DB5 = CSPDenseBlock(
+                                        in_channels = 1024, 
+                                        hidden_channels = 512, 
+                                        out_channels = 512, 
+                                        num_blocks = 4
+                                    )
 
     def forward(self, inputs):
-        inputs = self.Mish(self.norm1(self.conv1(inputs)))
-
-        inputs = self.Mish(self.downSampNorm1(self.downSamp1(inputs)))
+        inputs = self.conv1(inputs)
+        inputs = self.norm1(inputs)
+        inputs = self.Mish(inputs)
+        
+        inputs = self.downSamp1(inputs)
+        inputs = self.downSampNorm1(inputs)
+        inputs = self.Mish(inputs)
         inputs = self.CSP_DB1(inputs)
 
-        inputs = self.Mish(self.downSampNorm2(self.downSamp2(inputs)))
+        inputs = self.downSamp2(inputs)
+        inputs = self.downSampNorm2(inputs)
+        inputs = self.Mish(inputs)
         inputs = self.CSP_DB2(inputs)
 
-        inputs = self.Mish(self.downSampNorm3(self.downSamp3(inputs)))
+        inputs = self.downSamp3(inputs)
+        inputs = self.downSampNorm3(inputs)
+        inputs = self.Mish(inputs)
         inputs = self.CSP_DB3(inputs)
 
-        inputs = self.Mish(self.downSampNorm4(self.downSamp4(inputs)))
+        inputs = self.downSamp4(inputs)
+        inputs = self.downSampNorm4(inputs)
+        inputs = self.Mish(inputs)
         inputs = self.CSP_DB4(inputs)
 
-        inputs = self.Mish(self.downSampNorm5(self.downSamp5(inputs)))
+        inputs = self.downSamp5(inputs)
+        inputs = self.downSampNorm5(inputs)
+        inputs = self.Mish(inputs)
         inputs = self.CSP_DB5(inputs)
 
         return inputs
