@@ -26,6 +26,7 @@ class YoloLoss(nn.Module):
         predictions = predictions.view(m, w, h, self.anchor_nos, -1)
         targets = targets.view(m, w, h, self.anchor_nos, -1)
 
+        # TODO: Check if these have to be registered as buffers
         object_present = torch.zeros(m, w, h, self.anchor_nos, dtype = torch.int8, device = targets.device)
         no_object = torch.ones(m, w, h, self.anchor_nos, dtype = torch.int8, device = targets.device)
         
