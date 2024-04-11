@@ -73,12 +73,10 @@ class YoloHead(nn.Module):
         gt_anchors = torch.index_select(self.anchors, 0, gt_anchor_idx.view(-1)).view(gt_anchor_idx_shape + (2,))
         inputs[..., 2:4] = inputs[..., 2:4] * gt_anchors[:,:,:,None,:]
 
-        object_present = torch.zeros(inputs_shape[:-1], dtype = torch.int8, device=inputs.device)
-        object_present[inputs.any(axis = -1)] = 1
-
-        inputs[..., 0] += torch.arange(inputs.shape[1], device=inputs.device)[:, None, None]
-        inputs[..., 1] += torch.arange(inputs.shape[2], device=inputs.device)[:, None]
-
-        inputs[..., 0:2] = inputs[..., 0:2] * object_present[..., None] * self.scaling_fact
+        # TODO: Check this, should we add to all anchor boxes?
+        inputs[..., 1] += torch.arange(inputs.shape[1], device=inputs.device)[:, None, None]
+        inputs[..., 0] += torch.arange(inputs.shape[2], device=inputs.device)[:, None]
+        
+        inputs[..., 0:2] = inputs[..., 0:2] * self.scaling_fact
 
         return inputs
