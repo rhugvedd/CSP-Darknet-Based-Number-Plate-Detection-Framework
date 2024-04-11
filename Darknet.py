@@ -3,8 +3,12 @@ import torch.nn as nn
 import time
 
 def Norm(channels, momentum):
+    
     # TODO: Check settings of BatchNorm for training and inference
-    return nn.BatchNorm2d(channels, momentum = momentum)
+    if momentum == None:
+        return nn.BatchNorm2d(channels)
+    else:
+        return nn.BatchNorm2d(channels, momentum = momentum)
 
 def Conv(in_channels, out_channels, kernel_size, downSamp):
     if downSamp:
@@ -13,7 +17,7 @@ def Conv(in_channels, out_channels, kernel_size, downSamp):
         return  nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding='same')
     
 class CSPDenseBlock(nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_blocks):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_blocks, norm_momentum):
         super(CSPDenseBlock, self).__init__()
 
         self.blocks = nn.ModuleList()
@@ -27,7 +31,7 @@ class CSPDenseBlock(nn.Module):
                                                     kernel_size=1, 
                                                     downSamp=False
                                                 ),
-                                            Norm(hidden_channels),
+                                            Norm(hidden_channels, norm_momentum),
                                             nn.Mish(),
                                             Conv(
                                                     hidden_channels, 
@@ -35,7 +39,7 @@ class CSPDenseBlock(nn.Module):
                                                     kernel_size=3, 
                                                     downSamp=False
                                                 ),
-                                            Norm(out_channels),
+                                            Norm(out_channels, norm_momentum),
                                             nn.Mish()
                                         ))
 
@@ -48,7 +52,7 @@ class CSPDenseBlock(nn.Module):
                                                 kernel_size=1, 
                                                 downSamp=False
                                             ),
-                                        Norm(hidden_channels),
+                                        Norm(hidden_channels, norm_momentum),
                                         nn.Mish(),
                                         Conv(
                                                 hidden_channels, 
@@ -56,7 +60,7 @@ class CSPDenseBlock(nn.Module):
                                                 kernel_size=3, 
                                                 downSamp=False
                                             ),
-                                        Norm(out_channels),
+                                        Norm(out_channels, norm_momentum),
                                         nn.Mish()
                                     )
                                 )
@@ -67,7 +71,7 @@ class CSPDenseBlock(nn.Module):
                                     kernel_size=3, 
                                     downSamp=False
                                 )
-        self.norm1 = Norm(out_channels)
+        self.norm1 = Norm(out_channels, norm_momentum)
         self.mish = nn.Mish()
 
     def forward(self, inputs):
@@ -87,57 +91,62 @@ class CSPDenseBlock(nn.Module):
         return out
 
 class CSPDarknet(nn.Module):
-    def __init__(self, in_dim, training, data_format='channels_first'):
+    def __init__(self, in_dim, norm_momentum, data_format='channels_first'):
         super(CSPDarknet, self).__init__()
 
         self.Mish = nn.Mish()
 
         self.conv1 = Conv(3, 32, kernel_size=3, downSamp=False)
-        self.norm1 = Norm(32)
+        self.norm1 = Norm(32, norm_momentum)
 
         self.downSamp1 = Conv(32, 64, kernel_size=3, downSamp=True)
-        self.downSampNorm1 = Norm(64)
+        self.downSampNorm1 = Norm(64, norm_momentum)
         self.CSP_DB1 = CSPDenseBlock(
                                         in_channels = 64, 
                                         hidden_channels = 32, 
                                         out_channels = 64, 
-                                        num_blocks = 1
+                                        num_blocks = 1,
+                                        norm_momentum = norm_momentum
                                     )
         
         self.downSamp2 = Conv(64, 128, kernel_size=3, downSamp=True)
-        self.downSampNorm2 = Norm(128)
+        self.downSampNorm2 = Norm(128, norm_momentum)
         self.CSP_DB2 = CSPDenseBlock(
                                         in_channels = 128, 
                                         hidden_channels = 64, 
                                         out_channels = 64, 
-                                        num_blocks = 2
+                                        num_blocks = 2,
+                                        norm_momentum = norm_momentum
                                     )
         
         self.downSamp3 = Conv(64, 256, kernel_size=3, downSamp=True)
-        self.downSampNorm3 = Norm(256)
+        self.downSampNorm3 = Norm(256, norm_momentum)
         self.CSP_DB3 = CSPDenseBlock(
                                         in_channels = 256, 
                                         hidden_channels = 128, 
                                         out_channels = 128, 
-                                        num_blocks = 8
+                                        num_blocks = 8,
+                                        norm_momentum = norm_momentum
                                     )
         
         self.downSamp4 = Conv(128, 512, kernel_size=3, downSamp=True)
-        self.downSampNorm4 = Norm(512)
+        self.downSampNorm4 = Norm(512, norm_momentum)
         self.CSP_DB4 = CSPDenseBlock(
                                         in_channels = 512, 
                                         hidden_channels = 256, 
                                         out_channels = 256, 
-                                        num_blocks = 8
+                                        num_blocks = 8,
+                                        norm_momentum = norm_momentum
                                     )
 
         self.downSamp5 = Conv(256, 1024, kernel_size=3, downSamp=True)
-        self.downSampNorm5 = Norm(1024)
+        self.downSampNorm5 = Norm(1024, norm_momentum)
         self.CSP_DB5 = CSPDenseBlock(
                                         in_channels = 1024, 
                                         hidden_channels = 512, 
                                         out_channels = 512, 
-                                        num_blocks = 4
+                                        num_blocks = 4,
+                                        norm_momentum = norm_momentum
                                     )
 
     def forward(self, inputs):
