@@ -74,7 +74,7 @@ class CSPDenseBlock(nn.Module):
         self.norm1 = Norm(out_channels, norm_momentum)
         self.mish = nn.Mish()
 
-    def forward(self, inputs):
+    def forward(self, inputs):  
         dims = inputs.shape
         chunk1 = inputs[:, :(dims[1] // 2), :, :]
         chunk2 = inputs[:, (dims[1] // 2):, :, :]
