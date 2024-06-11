@@ -247,16 +247,15 @@ class DataExtractor(nn.Module):
 # scaling_fact = 32
 
 # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# # device = torch.device('cpu')
 
 # ExtractTrainData = DataExtractor(
 #                                     data_path=data_path + 'train/',
 #                                     save_path=data_path,
-#                                     annotations_csv="_annotations.csv",
+#                                     annotations_csv="_CleanedData.csv",
 #                                     scaled_image_size=image_size,
 #                                     scaling_fact=scaling_fact,
 #                                     device=device
 #                                 )
 
-# # ExtractTrainData.extractAnchors_toMem('Anchor_Train_9_Complete_20000', anchor_nos = 5)
-# ExtractTrainData.extractXY_toMem('X_Train_9_20000', 'Y_Train_9_20000', 'Anchor_Train_9', print_interval = 1)
+# ExtractTrainData.extractAnchors_toMem('Anchor_Train_9')
+# ExtractTrainData.extractXY_toMem('X_Train', 'Y_Train', 'Anchor_Train_9', print_interval = 1, num_examples=2)

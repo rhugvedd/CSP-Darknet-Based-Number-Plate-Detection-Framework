@@ -23,7 +23,6 @@ class CSPDenseBlock(nn.Module):
         self.blocks = nn.ModuleList()
         self.DenseBlockInChannels = in_channels // 2
 
-
         self.blocks.append(
                         nn.Sequential   (
                                             Conv(

@@ -62,7 +62,7 @@ X_test = X_test[:(len(X_test) - (len(X_test) % Batch_Size))]
 y_test = y_test[:(len(y_test) - (len(y_test) % Batch_Size))]
 
 print("Initializing Darknet")
-Darknet = nn.Sequential(CSPDarknet(image_shape, norm_momentum = 0.075), ChangeView(Batch_Size), nn.Linear(512, 256), nn.Linear(256, 10))
+Darknet = nn.Sequential(CSPDarknet(image_shape, training = True), ChangeView(Batch_Size), nn.Linear(512, 256), nn.Linear(256, 10))
 
 Darknet.to(device)
 
