@@ -3,15 +3,6 @@ from NumberPlateDetector import *
 """
 List of Hyperparameters
 """
-<<<<<<< HEAD
-model_name = 'NumPlate-Final-20000-LR-0.00025'
-checkpoint_path = './CheckPoints/'
-load_check_point = True
-checkpoint_name = 'NumPlate-Final-5000-Pre-Train-LR-0.0001-Epoch-20-2024-04-12 02-05-50' + '.pth'
-data_path = "NumPlateData/"
-X_Name = 'X_Train_9_20000-2024-04-12 02-18-41'
-Y_Name = 'Y_Train_9_20000-2024-04-12 02-18-41'
-=======
 model_name = 'NumPlate-Final-5000-Pre-Train-LR-0.0001'
 checkpoint_path = './CheckPoints/'
 load_check_point = True
@@ -19,22 +10,12 @@ checkpoint_name = 'NumPlate-Final-5000-Pre-Train-Epoch-10-2024-04-11' + '.pth'
 data_path = "NumPlateData/"
 X_Name = 'X_Train_9-2024-04-11 22-53-24'
 Y_Name = 'Y_Train_9-2024-04-11 22-53-24'
->>>>>>> 27ad35cec7d716757e4fb40398f31e7e6bf38057
 anchor_name = 'Anchor_train_9'
 image_scale = 9
 image_size = (image_scale*32, image_scale*32)
 scaling_fact = 32
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 batch_size = 12
-<<<<<<< HEAD
-norm_momentum = 0.045
-num_examples = 17500
-num_epochs = 1000
-loss_eval_interval = 0
-loss_eval_interval += 1
-checkpoint_save_epoch = 1
-learning_rate = 0.00025
-=======
 norm_momentum = 0.075
 num_examples = 5000
 num_epochs = 1000
@@ -42,7 +23,6 @@ loss_eval_interval = 0
 loss_eval_interval += 1
 checkpoint_save_epoch = 5
 learning_rate = 0.0001
->>>>>>> 27ad35cec7d716757e4fb40398f31e7e6bf38057
 """
 List ends.
 """
@@ -52,11 +32,7 @@ num_examples = num_examples - (num_examples % batch_size)
 TrainDataExtractor = DataExtractor  (
                                         data_path=data_path + 'train/', 
                                         save_path=data_path,
-<<<<<<< HEAD
-                                        annotations_csv="_annotations.csv", 
-=======
                                         annotations_csv="_CleanedData.csv", 
->>>>>>> 27ad35cec7d716757e4fb40398f31e7e6bf38057
                                         scaled_image_size=image_size, 
                                         scaling_fact=scaling_fact,
                                         device=device
@@ -130,11 +106,8 @@ for epoch in range(st_epoch, num_epochs + 1):
 
     TotalLoss_List.append(TotalEpoch_List)
 
-<<<<<<< HEAD
-=======
     print(TotalLoss_List)
 
->>>>>>> 27ad35cec7d716757e4fb40398f31e7e6bf38057
     if (epoch % checkpoint_save_epoch == 0) and (epoch != 0):
         date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S").replace(':', '-')
 
